@@ -1,0 +1,55 @@
+VULNERABLE CODE:
+@RequestMapping("/search")
+public String search(@RequestParam String query, Model model) {
+    String sql = "SELECT * FROM products WHERE name LIKE '%" + query + "%'";
+    List<Product> r = jdbcTemplate.query(sql, new ProductMapper());
+    model.addAttribute("results", r);
+    return "results";
+}
+
+REPORT:
+- **Vulnerability Type**: SQL Injection
+- **CWE**: CWE-89
+- **CVSS Estimate**: 9.8 (Critical)
+
+### 2. Attack Vector & Proof-of-Concept
+An attacker could exploit this vulnerable code by crafting malicious input in the `query` parameter. For example:
+```
+/s/search?query=' OR '1'='1
+```
+This would result in the query:
+```sql
+SELECT * FROM products WHERE name LIKE '%' OR '1'='1%'
+```
+This query would return all records from the `products` table, bypassing the intended search functionality.
+
+### 3. Secure Fixed Code
+```java
+@RequestMapping("/search")
+public String search(@RequestParam String query, Model model) {
+    String sql = "SELECT * FROM products WHERE name LIKE ?";
+    List<Product> r = jdbcTemplate.query(sql, new Object[]{"%"+query+"%"}, new ProductMapper());
+    model.addAttribute("results", r);
+    return "results";
+}
+```
+
+### 4. Comparative Analysis
+
+**Vulnerable Code:**
+```java
+String sql = "SELECT * FROM products WHERE name LIKE '%" + query + "%'";
+```
+
+**Fixed Code:**
+```java
+String sql = "SELECT * FROM products WHERE name LIKE ?";
+```
+
+### 5. Fix Verification
+The secure code addresses the vulnerability by:
+1. Using parameterized queries with placeholders (`?`), which ensures that user input is treated as data, not SQL code
+2. Passing the user input through `jdbcTemplate`'s parameter array, which safely escapes special characters and prevents injection attacks
+
+### 6. Production Remediation Notes
+It is recommended to use parameterized queries consistently in all database interactions throughout the application.
